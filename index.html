@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Écran du matin Bagneux</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500&display=swap">
+<style>
+/* =========================================================
+   CONFIGURATION — colle ici les liens de tes 2 écrans
+   créés sur https://prochainstrains.arno.cl
+   (RER B, gare de Bagneux, direction Paris)
+   (Bus 380, arrêt Laplace, direction Villejuif Louis Aragon)
+   → voir le bloc <script> en bas : const RER_URL / BUS_URL
+   ========================================================= */
+
+/* Layout : bandeau horloge + météo en haut, deux écrans de départs côte à côte dessous. */
+:root{
+  --bg:#0d1417;
+  --panel:#141e22;
+  --line:#22323a;
+  --fg:#eef3f2;
+  --muted:#8fa3a6;
+  --rer:#5291ce;   /* bleu RER B */
+  --bus:#6ec4a7;   /* vert bus RATP */
+  --sun:#f2c14e;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--body);
+  display:grid;grid-template-rows:auto 1fr;gap:1.2vh;
+  padding-block:1.6vh;padding-left:max(16px,1.6vw);padding-right:max(16px,1.6vw);
+  overflow:hidden;
+}
+header{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:3vw;
+  padding:1.4vh 2vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+}
+.clock{font-family:var(--display);font-weight:700;font-size:clamp(40px,8vh,120px);line-height:.9;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.date{font-size:clamp(14px,2.4vh,30px);color:var(--muted);text-transform:capitalize;margin-top:.4vh}
+.now{display:flex;align-items:center;gap:1.6vw;justify-self:center}
+.now .ico{font-size:clamp(36px,7vh,100px);line-height:1}
+.now .temp{font-family:var(--display);font-weight:600;font-size:clamp(36px,7vh,100px);line-height:1;font-variant-numeric:tabular-nums}
+.now .desc{font-size:clamp(14px,2.4vh,30px);color:var(--muted)}
+.now .desc b{color:var(--fg);font-weight:500}
+.hours{display:flex;gap:1.4vw}
+.h{text-align:center;min-width:3.6vw}
+.h .t{font-size:clamp(11px,1.8vh,22px);color:var(--muted);font-variant-numeric:tabular-nums}
+.h .i{font-size:clamp(18px,3.4vh,44px);line-height:1.2}
+.h .d{font-family:var(--display);font-weight:600;font-size:clamp(16px,2.8vh,36px);font-variant-numeric:tabular-nums}
+.h .p{font-size:clamp(10px,1.6vh,20px);color:var(--rer)}
+
+main{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;min-height:0}
+.slot{display:grid;grid-template-rows:auto 1fr;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tag{display:flex;align-items:center;gap:1vw;padding:1vh 1.4vw;font-family:var(--display);font-weight:600;font-size:clamp(16px,3vh,40px);letter-spacing:.02em;border-bottom:1px solid var(--line)}
+.badge{display:inline-grid;place-items:center;min-width:2.2em;height:1.5em;padding:0 .35em;border-radius:.3em;color:#fff;font-weight:700}
+.rer .badge{background:var(--rer);border-radius:50%;min-width:1.5em}
+.bus .badge{background:var(--bus);color:#0d1417}
+.tag small{font-family:var(--body);font-weight:400;font-size:.6em;color:var(--muted);letter-spacing:0}
+iframe{width:100%;height:100%;border:0;background:#000;display:block}
+.setup{padding:3vh 2vw;color:var(--muted);font-size:clamp(14px,2.2vh,26px);line-height:1.5}
+.setup code{color:var(--fg)}
+.err{color:var(--muted);font-size:clamp(12px,1.8vh,22px)}
+
+@media (max-width:700px){
+  body{overflow:auto;height:auto}
+  header{grid-template-columns:1fr;justify-items:start}
+  .now{justify-self:start}
+  .hours{flex-wrap:wrap}
+  main{grid-template-columns:1fr}
+  .slot{height:70vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+  </div>
+  <div class="now" id="now"><span class="err">Météo en cours de chargement…</span></div>
+  <div class="hours" id="hours"></div>
+</header>
+
+<main>
+  <section class="slot rer">
+    <div class="tag"><span class="badge">B</span> Bagneux <small>→ Paris</small></div>
+    <div id="rer-box"></div>
+  </section>
+  <section class="slot bus">
+    <div class="tag"><span class="badge">380</span> Laplace <small>→ Villejuif Louis Aragon</small></div>
+    <div id="bus-box"></div>
+  </section>
+</main>
+
+<script>
+/* ======== À REMPLIR ======== */
+const RER_URL = "https://departs.leon.gp/screen?screenId=rer&stopId=fr-idf_IDFM:70210&lineId=fr-idf_IDFM:C01743&hidePlatform=false&customDestinations=UGFyaXMlMkMlMjAlMjVSRVIlMjU=&filterType=branch";   // RER B Bagneux → Paris
+const BUS_URL = "https://departs.leon.gp/screen?screenId=bus&stopId=fr-idf_IDFM:70427&lineId=fr-idf_IDFM:C01809&settings=380%23%25%23Aller,380%23%25%23Retour";   // 380 Laplace → Villejuif Louis Aragon
+/* =========================== */
+
+const LAT = 48.7957, LON = 2.3085; // Bagneux
+
+function mountScreen(boxId, url, label){
+  const box = document.getElementById(boxId);
+  box.style.minHeight = "0";
+  if(!url){
+    box.innerHTML = `<div class="setup">Écran ${label} pas encore configuré.<br>
+      Crée-le sur <code>prochainstrains.arno.cl</code>, copie son lien et colle-le
+      dans <code>${boxId === "rer-box" ? "RER_URL" : "BUS_URL"}</code> en bas de ce fichier.</div>`;
+    return;
+  }
+  const f = document.createElement("iframe");
+  f.src = url; f.loading = "eager"; f.title = label;
+  box.style.height = "100%";
+  box.appendChild(f);
+}
+mountScreen("rer-box", RER_URL, "RER B");
+mountScreen("bus-box", BUS_URL, "Bus 380");
+
+/* Horloge */
+const fmtDate = new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+function tick(){
+  const d = new Date();
+  document.getElementById("clock").textContent =
+    d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("date").textContent = fmtDate.format(d);
+}
+tick(); setInterval(tick, 1000);
+
+/* Météo (Open-Meteo, sans clé) */
+const WMO = {
+  0:["☀️","Ciel dégagé"],1:["🌤️","Plutôt dégagé"],2:["⛅","Partiellement nuageux"],3:["☁️","Couvert"],
+  45:["🌫️","Brouillard"],48:["🌫️","Brouillard givrant"],
+  51:["🌦️","Bruine légère"],53:["🌦️","Bruine"],55:["🌧️","Bruine forte"],
+  56:["🌧️","Bruine verglaçante"],57:["🌧️","Bruine verglaçante"],
+  61:["🌧️","Pluie faible"],63:["🌧️","Pluie"],65:["🌧️","Forte pluie"],
+  66:["🌧️","Pluie verglaçante"],67:["🌧️","Pluie verglaçante"],
+  71:["🌨️","Neige faible"],73:["🌨️","Neige"],75:["❄️","Forte neige"],77:["🌨️","Grains de neige"],
+  80:["🌦️","Averses"],81:["🌧️","Averses"],82:["⛈️","Fortes averses"],
+  85:["🌨️","Averses de neige"],86:["❄️","Averses de neige"],
+  95:["⛈️","Orage"],96:["⛈️","Orage et grêle"],99:["⛈️","Orage et grêle"]
+};
+const w = c => WMO[c] || ["🌡️","—"];
+
+async function loadWeather(){
+  try{
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+      + `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m`
+      + `&hourly=temperature_2m,weather_code,precipitation_probability`
+      + `&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=2`;
+    const r = await fetch(u); if(!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const c = j.current, [ico, txt] = w(c.weather_code);
+    document.getElementById("now").innerHTML =
+      `<span class="ico">${ico}</span>
+       <span class="temp">${Math.round(c.temperature_2m)}°</span>
+       <span class="desc"><b>${txt}</b><br>Ressenti ${Math.round(c.apparent_temperature)}° · Vent ${Math.round(c.wind_speed_10m)} km/h<br>
+       Min ${Math.round(j.daily.temperature_2m_min[0])}° / Max ${Math.round(j.daily.temperature_2m_max[0])}°</span>`;
+    // prochaines heures, une sur deux
+    const nowH = new Date(); nowH.setMinutes(0,0,0);
+    const start = j.hourly.time.findIndex(t => new Date(t) >= nowH);
+    let html = "";
+    for(let k=0;k<6;k++){
+      const i = start + 1 + k*2; if(i<0 || i>=j.hourly.time.length) break;
+      const h = new Date(j.hourly.time[i]).getHours();
+      const p = j.hourly.precipitation_probability[i];
+      html += `<div class="h"><div class="t">${h}h</div><div class="i">${w(j.hourly.weather_code[i])[0]}</div>
+        <div class="d">${Math.round(j.hourly.temperature_2m[i])}°</div><div class="p">${p>=20 ? p+" %" : "&nbsp;"}</div></div>`;
+    }
+    document.getElementById("hours").innerHTML = html;
+  }catch(e){
+    document.getElementById("now").innerHTML = `<span class="err">Météo indisponible, nouvel essai dans 10 min.</span>`;
+  }
+}
+loadWeather(); setInterval(loadWeather, 10*60*1000);
+
+/* Recharge complète toutes les 30 min, au cas où un écran se fige */
+setTimeout(() => location.reload(), 30*60*1000);
+</script>
+</body>
+</html>
